@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coach Check-In</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f9; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); width: 100%; max-width: 400px; text-align: center; }
+        h2 { color: #1e293b; margin-bottom: 8px; }
+        p { color: #64748b; margin-top: 0; font-size: 14px; }
+        .building-tag { background: #e2e8f0; color: #334155; font-weight: bold; padding: 6px 12px; border-radius: 20px; display: inline-block; margin-bottom: 24px; font-size: 14px; }
+        input { width: 100%; padding: 12px; margin: 8px 0 16px 0; border: 1px solid #cbd5e1; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 16px; border: none; border-radius: 8px; font-size: 18px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #1d4ed8; }
+        .btn-success { background: #10b981; color: white; height: 120px; border-radius: 50%; width: 120px; margin: 0 auto; display: flex; align-items: center; justify-content: center; font-size: 16px; box-shadow: 0 4px 12px rgba(16,185,129,0.3); }
+        .btn-success:active { transform: scale(0.96); }
+        .hidden { display: none; }
+        .success-msg { color: #10b981; font-weight: bold; font-size: 18px; margin-top: 16px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div id="buildingDisplay" class="building-tag">Loading location...</div>
+
+    <div id="registrationScreen" class="hidden">
+        <h2>Welcome Coach</h2>
+        <p>Please enter your details once setup. Your phone will remember you for future check-ins.</p>
+        <input type="text" id="coachName" placeholder="Full Name" required>
+        <input type="email" id="coachEmail" placeholder="Email Address" required>
+        <button class="btn-primary" onclick="saveIdentity()">Save & Continue</button>
+    </div>
+
+    <div id="checkInScreen" class="hidden">
+        <h2>Hello, <span id="greetingName">Coach</span>!</h2>
+        <p>Tap the button below to log your attendance.</p>
+        <div style="margin: 30px 0;">
+            <button class="btn-success" id="checkInBtn" onclick="triggerCheckIn()">TAP TO<br>CHECK IN</button>
+        </div>
+        <div id="statusMessage"></div>
+    </div>
+</div>
+
+<script>
+    // 1. Detect Building from URL parameter (?b=High School)
+    const urlParams = new URLSearchParams(window.location.search);
+    const building = urlParams.get('b') || 'Unknown Location';
+    document.getElementById('buildingDisplay').innerText = building;
+
+    // 2. Check if browser already remembers the coach
+    window.onload = function() {
+        if (localStorage.getItem('coachName') && localStorage.getItem('coachEmail')) {
+            showCheckInScreen();
+        } else {
+            document.getElementById('registrationScreen').classList.remove('hidden');
+        }
+    };
+
+    function saveIdentity() {
+        const name = document.getElementById('coachName').value.trim();
+        const email = document.getElementById('coachEmail').value.trim();
+        if (!name || !email) return alert('Please fill out both fields.');
+        
+        localStorage.setItem('coachName', name);
+        localStorage.setItem('coachEmail', email);
+        showCheckInScreen();
+    }
+
+    function showCheckInScreen() {
+        document.getElementById('registrationScreen').classList.add('hidden');
+        document.getElementById('checkInScreen').classList.remove('hidden');
+        document.getElementById('greetingName').innerText = localStorage.getItem('coachName');
+    }
+
+    // 3. Send data to Make.com Webhook
+    function triggerCheckIn() {
+        const btn = document.getElementById('checkInBtn');
+        const status = document.getElementById('statusMessage');
+        
+        btn.disabled = true;
+        status.innerHTML = "Logging check-in...";
+
+        const webhookUrl = "https://hook.us2.make.com/buvqbaygl647w8f0xclxb76t0jse9051"; 
+
+        const payload = {
+            name: localStorage.getItem('coachName'),
+            email: localStorage.getItem('coachEmail'),
+            building: building,
+            timestamp: new Date().toLocaleString()
+        };
+
+        fetch(webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        })
+        .then(response => {
+            status.innerHTML = "<div class='success-msg'>✓ Check-In Successful!</div>";
+            setTimeout(() => { 
+                status.innerHTML = ""; 
+                btn.disabled = false;
+            }, 5000);
+        })
+        .catch(error => {
+            alert('Error sending check-in. Check your data connection.');
+            btn.disabled = false;
+            status.innerHTML = "";
+        });
+    }
+</script>
+</body>
+</html>
